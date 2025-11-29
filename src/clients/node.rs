@@ -1,9 +1,9 @@
-use serde::{self, Deserialize};
-use tracing::{debug, error, info};
+use serde::{self, Deserialize, Serialize};
+use tracing::{debug, info};
 
 use crate::types::{
     HashDigest,
-    ergo::{Balance, Base58String, UnconfirmedTransaction},
+    ergo::{Balance, Base58String, NodeBox, UnconfirmedTransaction},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -34,6 +34,16 @@ pub struct NodeClient {
     base_url: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UnspentByErgoTreeQuery<'a> {
+    offset: u32,
+    limit: u32,
+    sort_direction: &'a str,
+    include_unconfirmed: bool,
+    exclude_mempool_spent: bool,
+}
+
 impl NodeClient {
     pub fn new(http_client: reqwest::Client, base_url: &str) -> Self {
         Self {
@@ -54,7 +64,6 @@ impl NodeClient {
         let url = self.build_url("transactions/unconfirmed");
         let resp = self.http_client.get(&url).send().await?.json().await?;
         debug!(response = ?resp, "Mempool transactions fetched.");
-
         Ok(resp)
     }
 
@@ -63,7 +72,6 @@ impl NodeClient {
         let url = self.build_url("info");
         let response: InfoResponse = self.http_client.get(&url).send().await?.json().await?;
         debug!(?response, "Node info fetched.");
-
         Ok(response)
     }
 
@@ -83,7 +91,6 @@ impl NodeClient {
         }
 
         debug!(?index_status, "Node is fully indexed.");
-
         Ok(())
     }
 
@@ -122,6 +129,38 @@ impl NodeClient {
             .await?
             .json()
             .await?;
+        Ok(resp)
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub async fn get_unspent_boxes_by_ergo_tree(
+        &self,
+        ergo_tree_hex: &str,
+        offset: u32,
+        limit: u32,
+        sort_direction: &str,
+        include_unconfirmed: bool,
+        exclude_mempool_spent: bool,
+    ) -> Result<Vec<NodeBox>, NodeError> {
+        let url = self.build_url("blockchain/box/unspent/byErgoTree");
+        let query = UnspentByErgoTreeQuery {
+            offset,
+            limit,
+            sort_direction,
+            include_unconfirmed,
+            exclude_mempool_spent,
+        };
+
+        let resp = self
+            .http_client
+            .post(&url)
+            .query(&query)
+            .json(&ergo_tree_hex)
+            .send()
+            .await?
+            .json()
+            .await?;
+
         Ok(resp)
     }
 

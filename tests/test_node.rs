@@ -20,3 +20,31 @@ async fn test_node_balance() {
 
     assert!(balance.confirmed.nano_ergs >= 10);
 }
+
+#[tokio::test]
+async fn test_unspent_boxes_by_ergo_tree_one_box() {
+    let _ = dotenv();
+
+    let http_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .unwrap();
+
+    let node = NodeClient::new(http_client, &ERGO_NODE_URL);
+
+    let ergo_tree = "0008cd02232fb68248be44236ad6c43a3e9b602647163fd83ae10325a6713959fb19dacf";
+
+    let resp = node
+        .get_unspent_boxes_by_ergo_tree(ergo_tree, 0, 1, "desc", false, false)
+        .await
+        .unwrap();
+
+    assert_eq!(resp.len(), 1);
+
+    let b = &resp[0];
+    assert_eq!(b.utxo.ergo_tree.0, hex::decode(ergo_tree).unwrap());
+    assert!(b.utxo.value > 0);
+    assert!(b.utxo.creation_height > 0);
+    assert!(b.inclusion_height > 0);
+    assert!(b.global_index > 0);
+}

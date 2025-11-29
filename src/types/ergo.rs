@@ -84,6 +84,29 @@ pub struct NonMandatoryRegisters {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct BoxesResponse<T> {
+    pub items: Vec<T>,
+    pub total: u64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct NodeBox {
+    #[serde(flatten)]
+    pub utxo: UTxO,
+    pub address: Base58String,
+    #[serde(rename = "spentTransactionId")]
+    pub spent_transaction_id: Option<HashDigest>,
+    #[serde(rename = "spendingHeight")]
+    pub spending_height: Option<u32>,
+    #[serde(rename = "inclusionHeight")]
+    pub inclusion_height: u32,
+    #[serde(rename = "spendingProof")]
+    pub spending_proof: Option<SpendingProof>,
+    #[serde(rename = "globalIndex")]
+    pub global_index: u64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Balance {
     pub confirmed: BalancePart,
     pub unconfirmed: BalancePart,
