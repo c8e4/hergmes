@@ -3,7 +3,10 @@ use tracing::{debug, info};
 
 use crate::types::{
     HashDigest,
-    ergo::{Balance, Base58String, NodeBox, UnconfirmedTransaction},
+    ergo::{
+        Balance, Base58String, NodeBox, SpendingProof, TransactionInput, UTxO,
+        UnconfirmedTransaction,
+    },
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -44,6 +47,38 @@ struct UnspentByErgoTreeQuery<'a> {
     exclude_mempool_spent: bool,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct MempoolTransactionResponse {
+    pub id: HashDigest,
+    pub inputs: Vec<MempoolTransactionInput>,
+    pub outputs: Vec<UTxO>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct MempoolTransactionInput {
+    #[serde(flatten)]
+    pub utxo: Option<UTxO>,
+    #[serde(rename = "spendingProof")]
+    pub spending_proof: SpendingProof,
+}
+
+impl From<MempoolTransactionResponse> for UnconfirmedTransaction {
+    fn from(m: MempoolTransactionResponse) -> Self {
+        UnconfirmedTransaction {
+            id: m.id,
+            outputs: m.outputs,
+            inputs: m
+                .inputs
+                .into_iter()
+                .map(|input| TransactionInput {
+                    utxo: input.utxo.expect("UTxO should be present"),
+                    spending_proof: input.spending_proof,
+                })
+                .collect(),
+        }
+    }
+}
+
 impl NodeClient {
     pub fn new(http_client: reqwest::Client, base_url: &str) -> Self {
         Self {
@@ -61,12 +96,24 @@ impl NodeClient {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn get_mempool_transactions(&self) -> Result<Vec<UnconfirmedTransaction>, NodeError> {
+    pub async fn get_mempool_snapshot(&self) -> Result<Vec<UnconfirmedTransaction>, NodeError> {
         let url = self.build_url("transactions/unconfirmed");
-        let resp = self.http_client.get(&url).send().await?.json().await?;
-        debug!(response = ?resp, "Mempool transactions fetched.");
+        let resp: Vec<MempoolTransactionResponse> = self
+            .http_client
+            .get(&url)
+            .query(&[("limit", i32::MAX)])
+            .send()
+            .await?
+            .json()
+            .await?;
 
-        Ok(resp)
+        let valid = resp
+            .into_iter()
+            .filter(|tx| tx.inputs.iter().all(|i| i.utxo.is_some()))
+            .map(|tx| tx.into())
+            .collect::<Vec<UnconfirmedTransaction>>();
+
+        Ok(valid)
     }
 
     #[tracing::instrument(skip(self))]
