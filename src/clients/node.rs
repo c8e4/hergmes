@@ -56,6 +56,7 @@ impl NodeClient {
     pub async fn get_indexed_height(&self) -> Result<IndexedHeightResponse, NodeError> {
         let url = self.build_url("blockchain/indexedHeight");
         let resp = self.http_client.get(&url).send().await?.json().await?;
+
         Ok(resp)
     }
 
@@ -64,6 +65,7 @@ impl NodeClient {
         let url = self.build_url("transactions/unconfirmed");
         let resp = self.http_client.get(&url).send().await?.json().await?;
         debug!(response = ?resp, "Mempool transactions fetched.");
+
         Ok(resp)
     }
 
@@ -72,12 +74,14 @@ impl NodeClient {
         let url = self.build_url("info");
         let response: InfoResponse = self.http_client.get(&url).send().await?.json().await?;
         debug!(?response, "Node info fetched.");
+
         Ok(response)
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn get_last_mempool_update_timestamp(&self) -> Result<u64, NodeError> {
         let info = self.get_info().await?;
+
         Ok(info.last_mempool_update)
     }
 
@@ -89,8 +93,8 @@ impl NodeClient {
         if index_status.indexed_height != index_status.full_height {
             return Err(NodeError::NotIndexed(index_status));
         }
-
         debug!(?index_status, "Node is fully indexed.");
+
         Ok(())
     }
 
@@ -98,6 +102,7 @@ impl NodeClient {
     pub async fn get_unconfirmed_transaction_ids(&self) -> Result<Vec<HashDigest>, NodeError> {
         let url = self.build_url("transactions/unconfirmed/transactionIds");
         let resp = self.http_client.get(&url).send().await?.json().await?;
+
         Ok(resp)
     }
 
@@ -115,6 +120,7 @@ impl NodeClient {
             .await?
             .json()
             .await?;
+
         Ok(resp)
     }
 
@@ -129,6 +135,7 @@ impl NodeClient {
             .await?
             .json()
             .await?;
+
         Ok(resp)
     }
 
