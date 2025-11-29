@@ -164,6 +164,40 @@ impl NodeClient {
         Ok(resp)
     }
 
+    #[tracing::instrument(skip(self))]
+    pub async fn get_unspent_boxes_by_token_id(
+        &self,
+        token_id_hex: &str,
+        offset: u32,
+        limit: u32,
+        sort_direction: &str,
+        include_unconfirmed: bool,
+        exclude_mempool_spent: bool,
+    ) -> Result<Vec<NodeBox>, NodeError> {
+        let url = self.build_url(&format!(
+            "blockchain/box/unspent/byTokenId/{}",
+            token_id_hex
+        ));
+        let query = UnspentByErgoTreeQuery {
+            offset,
+            limit,
+            sort_direction,
+            include_unconfirmed,
+            exclude_mempool_spent,
+        };
+
+        let resp = self
+            .http_client
+            .get(&url)
+            .query(&query)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(resp)
+    }
+
     fn build_url(&self, path: &str) -> String {
         format!("{}/{}", self.base_url, path)
     }

@@ -48,3 +48,32 @@ async fn test_unspent_boxes_by_ergo_tree_one_box() {
     assert!(b.inclusion_height > 0);
     assert!(b.global_index > 0);
 }
+
+#[tokio::test]
+async fn test_unspent_boxes_by_token_id_one_box() {
+    let _ = dotenv();
+
+    let http_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .unwrap();
+
+    let node = NodeClient::new(http_client, &ERGO_NODE_URL);
+
+    let token_id = "cbd75cfe1a4f37f9a22eaee516300e36ea82017073036f07a09c1d2e10277cda";
+    let token_bytes: [u8; 32] = hex::decode(token_id).unwrap().try_into().unwrap();
+
+    let resp = node
+        .get_unspent_boxes_by_token_id(token_id, 0, 1, "desc", false, false)
+        .await
+        .unwrap();
+
+    assert_eq!(resp.len(), 1);
+
+    let b = &resp[0];
+    assert!(b.utxo.tokens.iter().any(|t| t.id.0 == token_bytes));
+    assert!(b.utxo.value > 0);
+    assert!(b.utxo.creation_height > 0);
+    assert!(b.inclusion_height > 0);
+    assert!(b.global_index > 0);
+}
