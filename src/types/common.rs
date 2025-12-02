@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use hex::{FromHex, ToHex};
 use serde::de::Error;
@@ -11,20 +11,20 @@ pub type HashDigest = Digest<32>;
 #[derive(Clone, PartialEq, Eq)]
 pub struct Digest<const N: usize>(pub [u8; N]);
 
-impl<const N: usize> ToString for Digest<N> {
-    fn to_string(&self) -> String {
-        self.0.encode_hex::<String>()
+impl<const N: usize> Display for Digest<N> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.encode_hex::<String>())
     }
 }
 
-impl<const N: usize> Into<String> for Digest<N> {
-    fn into(self) -> String {
-        self.to_string()
+impl<const N: usize> From<Digest<N>> for String {
+    fn from(val: Digest<N>) -> String {
+        val.to_string()
     }
 }
 
 impl<const N: usize> Debug for Digest<N> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.encode_hex::<String>())
     }
 }
@@ -58,20 +58,20 @@ impl<const N: usize> Serialize for Digest<N> {
 #[derive(Clone, PartialEq, Eq)]
 pub struct HexBytes(pub Vec<u8>);
 
-impl ToString for HexBytes {
-    fn to_string(&self) -> String {
-        self.0.encode_hex::<String>()
+impl Display for HexBytes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.encode_hex::<String>())
     }
 }
 
-impl Into<String> for HexBytes {
-    fn into(self) -> String {
-        self.to_string()
+impl From<HexBytes> for String {
+    fn from(hex_bytes: HexBytes) -> Self {
+        hex_bytes.to_string()
     }
 }
 
 impl Debug for HexBytes {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.encode_hex::<String>())
     }
 }

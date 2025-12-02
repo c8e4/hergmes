@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use ::tracing::info;
 use arc_swap::ArcSwap;
 use dotenvy::dotenv;
 use hergmes::{
