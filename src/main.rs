@@ -7,13 +7,13 @@ use hergmes::{
     env::ERGO_NODE_URL,
     error::AppError,
     mempool::{self, MempoolSnapshot},
-    tracing::{self, default_subscriber},
+    trace::{self, default_subscriber},
 };
 
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
     let _ = dotenv();
-    tracing::init(default_subscriber());
+    trace::init(default_subscriber());
 
     let http_client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
