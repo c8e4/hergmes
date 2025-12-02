@@ -4,6 +4,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{HashDigest, HexBytes};
 
+#[derive(Debug, Deserialize)]
+pub struct BlockHeader {
+    pub id: HashDigest,
+    #[serde(rename = "parentId")]
+    pub parent_id: HashDigest,
+    pub height: u32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Block {
+    pub header: BlockHeader,
+    pub transactions: Vec<Transaction>,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Transaction {
     pub id: HashDigest,
