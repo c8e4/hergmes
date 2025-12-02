@@ -28,9 +28,6 @@ async fn main() -> Result<(), AppError> {
 
     let node = NodeClient::new(http_client, &ERGO_NODE_URL);
     node.check_node_index_status().await?;
-    let headers = node.get_last_n_headers(1).await?;
-
-    info!(?headers, "Latest block header fetched.");
 
     let _ =
         tokio::spawn(async move { mempool::start_indexer(&node, mempool_snapshot.clone()).await })

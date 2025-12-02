@@ -3,7 +3,7 @@ use tracing::{debug, error, info};
 
 use crate::types::{
     HashDigest,
-    ergo::{BlockHeader, SpendingProof, TransactionInput, UTxO, UnconfirmedTransaction},
+    ergo::{Block, BlockHeader, SpendingProof, TransactionInput, UTxO, UnconfirmedTransaction},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -160,6 +160,13 @@ impl NodeClient {
     #[tracing::instrument(skip(self))]
     pub async fn get_last_n_headers(&self, n: u32) -> Result<Vec<BlockHeader>, NodeError> {
         let url = self.build_url(&format!("blocks/lastHeaders/{n}"));
+        let resp = self.http_client.get(&url).send().await?.json().await?;
+        Ok(resp)
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub async fn get_block(&self, header_id: &str) -> Result<Block, NodeError> {
+        let url = self.build_url(&format!("blocks/{header_id}"));
         let resp = self.http_client.get(&url).send().await?.json().await?;
         Ok(resp)
     }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str};
 
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,28 @@ pub struct BlockHeader {
 #[derive(Debug, Deserialize)]
 pub struct Block {
     pub header: BlockHeader,
-    pub transactions: Vec<Transaction>,
+    #[serde(rename = "blockTransactions")]
+    pub transactions: BlockTransactions,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BlockTransactions {
+    #[serde(rename = "headerId")]
+    pub header_id: HashDigest,
+    pub transactions: Vec<BlockTransaction>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MinimalInput {
+    #[serde(rename = "boxId")]
+    pub id: HashDigest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BlockTransaction {
+    pub id: HashDigest,
+    pub inputs: Vec<MinimalInput>,
+    pub outputs: Vec<UTxO>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
