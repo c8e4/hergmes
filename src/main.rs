@@ -6,8 +6,8 @@ use hergmes::{
     clients::node::NodeClient,
     env::ERGO_NODE_URL,
     error::AppError,
-    mempool::{self, MempoolSnapshot},
     trace::{self, default_subscriber},
+    watcher::{self, MempoolSnapshot},
 };
 
 #[tokio::main]
@@ -29,8 +29,7 @@ async fn main() -> Result<(), AppError> {
     node.check_node_index_status().await?;
 
     let _ =
-        tokio::spawn(async move { mempool::start_indexer(&node, mempool_snapshot.clone()).await })
-            .await;
+        tokio::spawn(async move { watcher::start(&node, mempool_snapshot.clone()).await }).await;
 
     Ok(())
 }

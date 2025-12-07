@@ -12,10 +12,7 @@ pub struct MempoolSnapshot {
 }
 
 #[tracing::instrument(skip(node, swap))]
-pub async fn start_indexer(
-    node: &NodeClient,
-    swap: Arc<ArcSwap<MempoolSnapshot>>,
-) -> Result<(), AppError> {
+pub async fn start(node: &NodeClient, swap: Arc<ArcSwap<MempoolSnapshot>>) -> Result<(), AppError> {
     info!("Starting mempool indexer...");
 
     let mut last_update = 0u64;
