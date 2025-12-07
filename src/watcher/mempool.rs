@@ -6,6 +6,7 @@ use tracing::{error, info};
 
 use crate::{clients::node::NodeClient, error::AppError, types::ergo::UnconfirmedTransaction};
 
+#[derive(Default)]
 pub struct MempoolSnapshot {
     pub last_update: u64,
     pub transactions: Vec<UnconfirmedTransaction>,
