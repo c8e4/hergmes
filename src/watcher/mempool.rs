@@ -23,10 +23,7 @@ pub async fn start(node: &NodeClient, swap: Arc<ArcSwap<MempoolSnapshot>>) -> Re
                 Ok(transactions) => {
                     last_update = updated;
                     info!(count = ?transactions.len(), ?last_update, "Mempool updated, storing new snapshot");
-                    swap.store(Arc::new(MempoolSnapshot {
-                        last_update,
-                        transactions,
-                    }));
+                    swap.store(Arc::new(MempoolSnapshot { last_update, transactions }));
                 }
                 Err(e) => error!("Error fetching mempool snapshot: {:?}", e),
             },

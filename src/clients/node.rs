@@ -68,10 +68,7 @@ impl From<MempoolTransactionResponse> for UnconfirmedTransaction {
 
 impl NodeClient {
     pub fn new(http_client: reqwest::Client, base_url: &str) -> Self {
-        Self {
-            http_client,
-            base_url: base_url.trim_end_matches('/').to_string(),
-        }
+        Self { http_client, base_url: base_url.trim_end_matches('/').to_string() }
     }
 
     #[tracing::instrument(skip(self))]
