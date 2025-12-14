@@ -7,6 +7,7 @@ const BLAKE_256_HASH_LENGTH: usize = 32;
 
 const P2PK_ERGOTREE_PREFIX: [u8; 3] = [0x00, 0x08, 0xcd];
 const P2PK_ERGOTREE_LENGTH: usize = 36;
+const P2PK_PUBKEY_LENGTH: usize = 33;
 
 const P2SH_ERGOTREE_PREFIX: [u8; 17] = [
     0x00, 0xea, 0x02, 0xd1, 0x93, 0xb4, 0xcb, 0xe4, 0xe3, 0x01, 0x0e, 0x04, 0x00, 0x04, 0x30, 0x0e,
@@ -108,6 +109,8 @@ impl ErgoAddress {
         Self::from_unpacked(unpacked)
     }
 
+    /// Decode an address without validating the checksum.
+    /// Use this only when you trust the input source and need maximum performance.
     pub fn decode_unsafe(encoded: &str) -> Result<Self, AddressError> {
         let bytes = bs58::decode(encoded)
             .into_vec()
@@ -145,8 +148,16 @@ impl ErgoAddress {
     }
 
     pub fn encode_for_network(&self, network: Network) -> String {
-        let body = self.get_body();
-        encode_address(network, self.address_type, &body)
+        let body: &[u8] = match self.address_type {
+            AddressType::P2PK => &self.ergo_tree[P2PK_ERGOTREE_PREFIX.len()..],
+            AddressType::P2SH => {
+                &self.ergo_tree
+                    [P2SH_ERGOTREE_PREFIX.len()..P2SH_ERGOTREE_PREFIX.len() + P2SH_HASH_LENGTH]
+            }
+            AddressType::P2S => &self.ergo_tree,
+        };
+
+        encode_address(network, self.address_type, body)
     }
 
     pub fn ergo_tree_hex(&self) -> String {
@@ -155,6 +166,10 @@ impl ErgoAddress {
 
     pub fn ergo_tree_bytes(&self) -> &[u8] {
         &self.ergo_tree
+    }
+
+    pub fn into_ergo_tree(self) -> Vec<u8> {
+        self.ergo_tree
     }
 
     pub fn network(&self) -> Network {
@@ -188,16 +203,6 @@ impl ErgoAddress {
         AddressType::P2S
     }
 
-    fn get_body(&self) -> Vec<u8> {
-        match self.address_type {
-            AddressType::P2PK => self.ergo_tree[P2PK_ERGOTREE_PREFIX.len()..].to_vec(),
-            AddressType::P2SH => self.ergo_tree
-                [P2SH_ERGOTREE_PREFIX.len()..P2SH_ERGOTREE_PREFIX.len() + P2SH_HASH_LENGTH]
-                .to_vec(),
-            AddressType::P2S => self.ergo_tree.clone(),
-        }
-    }
-
     fn unpack_address(bytes: &[u8]) -> Result<UnpackedAddress, AddressError> {
         if bytes.len() < 5 {
             return Err(AddressError::AddressTooShort);
@@ -229,6 +234,16 @@ impl ErgoAddress {
     }
 
     fn from_unpacked(unpacked: UnpackedAddress) -> Result<Self, AddressError> {
+        match unpacked.address_type {
+            AddressType::P2PK if unpacked.body.len() != P2PK_PUBKEY_LENGTH => {
+                return Err(AddressError::InvalidErgoTree);
+            }
+            AddressType::P2SH if unpacked.body.len() != P2SH_HASH_LENGTH => {
+                return Err(AddressError::InvalidErgoTree);
+            }
+            _ => {}
+        }
+
         let ergo_tree = match unpacked.address_type {
             AddressType::P2PK => {
                 let mut tree = P2PK_ERGOTREE_PREFIX.to_vec();
@@ -266,6 +281,27 @@ struct UnpackedAddress {
     address_type: AddressType,
 }
 
+pub fn tree_to_base58(ergo_tree: &[u8], network: Network) -> Result<String, AddressError> {
+    if ergo_tree.is_empty() {
+        return Err(AddressError::InvalidErgoTree);
+    }
+
+    let address_type = ErgoAddress::get_ergo_tree_type(ergo_tree);
+    let body: &[u8] = match address_type {
+        AddressType::P2PK => &ergo_tree[P2PK_ERGOTREE_PREFIX.len()..],
+        AddressType::P2SH => {
+            &ergo_tree[P2SH_ERGOTREE_PREFIX.len()..P2SH_ERGOTREE_PREFIX.len() + P2SH_HASH_LENGTH]
+        }
+        AddressType::P2S => ergo_tree,
+    };
+
+    Ok(encode_address(network, address_type, body))
+}
+
+pub fn base58_to_tree(encoded: &str) -> Result<Vec<u8>, AddressError> {
+    Ok(ErgoAddress::decode(encoded)?.into_ergo_tree())
+}
+
 fn encode_address(network: Network, address_type: AddressType, body: &[u8]) -> String {
     let head = network as u8 + address_type as u8;
 
@@ -284,82 +320,6 @@ fn blake2b256(data: &[u8]) -> [u8; BLAKE_256_HASH_LENGTH] {
     let mut hasher = Blake2b::<blake2::digest::consts::U32>::new();
     hasher.update(data);
     hasher.finalize().into()
-}
-
-#[inline]
-pub fn ergo_tree_to_address_unchecked(ergo_tree: &[u8], network: Network) -> String {
-    let head = network as u8 + AddressType::P2S as u8;
-
-    let total_len = 1 + ergo_tree.len() + CHECKSUM_LENGTH;
-    let mut content = Vec::with_capacity(total_len);
-
-    content.push(head);
-    content.extend_from_slice(ergo_tree);
-
-    let hash = blake2b256(&content);
-
-    content.extend_from_slice(&hash[..CHECKSUM_LENGTH]);
-
-    bs58::encode(&content).into_string()
-}
-
-#[inline]
-pub fn address_to_ergo_tree_unchecked(encoded: &str) -> Vec<u8> {
-    let mut buf = [0u8; MAX_ADDRESS_BYTES];
-    let len = bs58::decode(encoded).onto(&mut buf[..]).unwrap_or(0);
-
-    let head = buf[0];
-    let body = &buf[1..len - CHECKSUM_LENGTH];
-
-    match head & 0x0f {
-        1 => {
-            let mut tree = Vec::with_capacity(P2PK_ERGOTREE_LENGTH);
-            tree.extend_from_slice(&P2PK_ERGOTREE_PREFIX);
-            tree.extend_from_slice(body);
-            tree
-        }
-        2 => {
-            let mut tree = Vec::with_capacity(P2SH_ERGOTREE_LENGTH);
-            tree.extend_from_slice(&P2SH_ERGOTREE_PREFIX);
-            tree.extend_from_slice(body);
-            tree.extend_from_slice(&P2SH_ERGOTREE_SUFFIX);
-            tree
-        }
-        _ => body.to_vec(),
-    }
-}
-
-/// Max decoded address bytes. ErgoTree must fit in 4KB box, plus header + checksum.
-const MAX_ADDRESS_BYTES: usize = 4096 + 1 + 4;
-
-#[inline]
-pub fn address_to_ergo_tree_unchecked_buf(encoded: &str, out: &mut [u8]) -> usize {
-    let mut buf = [0u8; MAX_ADDRESS_BYTES];
-    let len = bs58::decode(encoded).onto(&mut buf[..]).unwrap_or(0);
-
-    let head = buf[0];
-    let body = &buf[1..len - CHECKSUM_LENGTH];
-
-    match head & 0x0f {
-        1 => {
-            out[..P2PK_ERGOTREE_PREFIX.len()].copy_from_slice(&P2PK_ERGOTREE_PREFIX);
-            out[P2PK_ERGOTREE_PREFIX.len()..P2PK_ERGOTREE_LENGTH].copy_from_slice(body);
-            P2PK_ERGOTREE_LENGTH
-        }
-        2 => {
-            out[..P2SH_ERGOTREE_PREFIX.len()].copy_from_slice(&P2SH_ERGOTREE_PREFIX);
-            out[P2SH_ERGOTREE_PREFIX.len()..P2SH_ERGOTREE_PREFIX.len() + P2SH_HASH_LENGTH]
-                .copy_from_slice(body);
-            out[P2SH_ERGOTREE_PREFIX.len() + P2SH_HASH_LENGTH..P2SH_ERGOTREE_LENGTH]
-                .copy_from_slice(&P2SH_ERGOTREE_SUFFIX);
-            P2SH_ERGOTREE_LENGTH
-        }
-        _ => {
-            let body_len = body.len();
-            out[..body_len].copy_from_slice(body);
-            body_len
-        }
-    }
 }
 
 #[cfg(test)]
@@ -771,111 +731,42 @@ mod tests {
     }
 
     #[test]
-    fn test_ergo_tree_to_address_unchecked_p2s() {
-        let tree_bytes = hex::decode(FEE_CONTRACT).unwrap();
-        let address = ergo_tree_to_address_unchecked(&tree_bytes, Network::Mainnet);
-        assert_eq!(address, FEE_MAINNET_ADDRESS);
+    fn test_base58_to_tree_helpers() {
+        let tree = base58_to_tree(FEE_MAINNET_ADDRESS).unwrap();
+        assert_eq!(hex::encode(tree), FEE_CONTRACT);
 
-        let address_testnet = ergo_tree_to_address_unchecked(&tree_bytes, Network::Testnet);
-        assert_eq!(address_testnet, FEE_TESTNET_ADDRESS);
-    }
+        let tree = base58_to_tree(P2S_LONG_ADDRESS).unwrap();
+        assert_eq!(hex::encode(tree), P2S_LONG_TREE);
 
-    #[test]
-    fn test_ergo_tree_to_address_unchecked_long_p2s() {
-        let tree_bytes = hex::decode(P2S_LONG_TREE).unwrap();
-        let address = ergo_tree_to_address_unchecked(&tree_bytes, Network::Mainnet);
-        assert_eq!(address, P2S_LONG_ADDRESS);
-    }
-
-    #[test]
-    fn test_address_to_ergo_tree_unchecked_p2pk() {
-        let addresses = [
-            (
-                "9fRusAarL1KkrWQVsxSRVYnvWxaAT2A96cKtNn9tvPh5XUyCisr",
-                "0008cd0278011ec0cf5feb92d61adb51dcb75876627ace6fd9446ab4cabc5313ab7b39a7",
-            ),
-            (
-                "9hY16vzHmmfyVBwKeFGHvb2bMFsG94A1u7To1QWtUokACyFVENQ",
-                "0008cd038d39af8c37583609ff51c6a577efe60684119da2fbd0d75f9c72372886a58a63",
-            ),
-        ];
-
-        for (addr, expected_tree) in addresses {
-            let tree = address_to_ergo_tree_unchecked(addr);
-            assert_eq!(hex::encode(&tree), expected_tree);
-        }
-    }
-
-    #[test]
-    fn test_address_to_ergo_tree_unchecked_p2sh() {
-        let addresses = [
-            (
-                "8sZ2fVu5VUQKEmWt4xRRDBYzuw5aevhhziPBDGB",
-                "00ea02d193b4cbe4e3010e040004300e18fd53c43ebbc8b5c53f2ccf270d1bc22740eb3855463f5faed40801",
-            ),
-            (
-                "7g5LhysK7mxX8xmZdPLtFE42wwxGFjpp8VofStb",
-                "00ea02d193b4cbe4e3010e040004300e1888dc65bcf63bb55e6c2bfe03b1f2b14eef7d4fe0fa32d8e8d40801",
-            ),
-        ];
-
-        for (addr, expected_tree) in addresses {
-            let tree = address_to_ergo_tree_unchecked(addr);
-            assert_eq!(hex::encode(&tree), expected_tree);
-        }
-    }
-
-    #[test]
-    fn test_address_to_ergo_tree_unchecked_p2s() {
-        let tree = address_to_ergo_tree_unchecked(FEE_MAINNET_ADDRESS);
-        assert_eq!(hex::encode(&tree), FEE_CONTRACT);
-
-        let tree_long = address_to_ergo_tree_unchecked(P2S_LONG_ADDRESS);
-        assert_eq!(hex::encode(&tree_long), P2S_LONG_TREE);
-    }
-
-    #[test]
-    fn test_address_to_ergo_tree_unchecked_buf() {
-        let mut buf = [0u8; 64];
-
-        // P2PK - fixed size 36 bytes
-        let len = address_to_ergo_tree_unchecked_buf(
-            "9fRusAarL1KkrWQVsxSRVYnvWxaAT2A96cKtNn9tvPh5XUyCisr",
-            &mut buf,
-        );
-        assert_eq!(len, 36);
+        let tree = base58_to_tree("9fRusAarL1KkrWQVsxSRVYnvWxaAT2A96cKtNn9tvPh5XUyCisr").unwrap();
         assert_eq!(
-            hex::encode(&buf[..len]),
+            hex::encode(tree),
             "0008cd0278011ec0cf5feb92d61adb51dcb75876627ace6fd9446ab4cabc5313ab7b39a7"
         );
+    }
 
-        // P2SH - fixed size 44 bytes
-        let len =
-            address_to_ergo_tree_unchecked_buf("8sZ2fVu5VUQKEmWt4xRRDBYzuw5aevhhziPBDGB", &mut buf);
-        assert_eq!(len, 44);
+    #[test]
+    fn test_tree_to_base58_helpers() {
+        let fee_tree = hex::decode(FEE_CONTRACT).unwrap();
         assert_eq!(
-            hex::encode(&buf[..len]),
-            "00ea02d193b4cbe4e3010e040004300e18fd53c43ebbc8b5c53f2ccf270d1bc22740eb3855463f5faed40801"
+            tree_to_base58(&fee_tree, Network::Mainnet).unwrap(),
+            FEE_MAINNET_ADDRESS
+        );
+        assert_eq!(
+            tree_to_base58(&fee_tree, Network::Testnet).unwrap(),
+            FEE_TESTNET_ADDRESS
+        );
+
+        let long_tree = hex::decode(P2S_LONG_TREE).unwrap();
+        assert_eq!(
+            tree_to_base58(&long_tree, Network::Mainnet).unwrap(),
+            P2S_LONG_ADDRESS
         );
     }
 
     #[test]
-    fn test_unchecked_roundtrip_matches_checked() {
-        let test_addresses = [
-            "9fRusAarL1KkrWQVsxSRVYnvWxaAT2A96cKtNn9tvPh5XUyCisr", // P2PK
-            "8sZ2fVu5VUQKEmWt4xRRDBYzuw5aevhhziPBDGB",             // P2SH
-            FEE_MAINNET_ADDRESS,                                   // P2S
-        ];
-
-        for addr in test_addresses {
-            let checked = ErgoAddress::decode(addr).unwrap();
-            let unchecked_tree = address_to_ergo_tree_unchecked(addr);
-            assert_eq!(
-                checked.ergo_tree_bytes(),
-                unchecked_tree.as_slice(),
-                "Mismatch for {}",
-                addr
-            );
-        }
+    fn test_tree_to_base58_rejects_empty_tree() {
+        let err = tree_to_base58(&[], Network::Mainnet).unwrap_err();
+        matches!(err, AddressError::InvalidErgoTree);
     }
 }
