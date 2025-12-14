@@ -84,11 +84,7 @@ pub struct ErgoAddress {
 impl ErgoAddress {
     pub fn from_ergo_tree(ergo_tree: Vec<u8>, network: Network) -> Self {
         let address_type = Self::get_ergo_tree_type(&ergo_tree);
-        Self {
-            ergo_tree,
-            network,
-            address_type,
-        }
+        Self { ergo_tree, network, address_type }
     }
 
     pub fn from_ergo_tree_hex(ergo_tree_hex: &str, network: Network) -> Result<Self, AddressError> {
@@ -268,11 +264,7 @@ impl ErgoAddress {
             AddressType::P2S => unpacked.body.clone(),
         };
 
-        Ok(Self {
-            ergo_tree,
-            network: unpacked.network,
-            address_type: unpacked.address_type,
-        })
+        Ok(Self { ergo_tree, network: unpacked.network, address_type: unpacked.address_type })
     }
 }
 
@@ -407,10 +399,7 @@ mod tests {
         let ergo_tree = "0008cd0278011ec0cf5feb92d61adb51dcb75876627ace6fd9446ab4cabc5313ab7b39a7";
         let address = ErgoAddress::from_ergo_tree_hex(ergo_tree, Network::Mainnet).unwrap();
         assert_eq!(address.address_type(), AddressType::P2PK);
-        assert_eq!(
-            address.encode(),
-            "9fRusAarL1KkrWQVsxSRVYnvWxaAT2A96cKtNn9tvPh5XUyCisr"
-        );
+        assert_eq!(address.encode(), "9fRusAarL1KkrWQVsxSRVYnvWxaAT2A96cKtNn9tvPh5XUyCisr");
     }
 
     #[test]
@@ -431,14 +420,8 @@ mod tests {
     #[test]
     fn test_encode_for_different_network() {
         let address = ErgoAddress::from_ergo_tree_hex(FEE_CONTRACT, Network::Mainnet).unwrap();
-        assert_eq!(
-            address.encode_for_network(Network::Mainnet),
-            FEE_MAINNET_ADDRESS
-        );
-        assert_eq!(
-            address.encode_for_network(Network::Testnet),
-            FEE_TESTNET_ADDRESS
-        );
+        assert_eq!(address.encode_for_network(Network::Mainnet), FEE_MAINNET_ADDRESS);
+        assert_eq!(address.encode_for_network(Network::Testnet), FEE_TESTNET_ADDRESS);
     }
 
     #[test]
@@ -510,40 +493,22 @@ mod tests {
 
     #[test]
     fn test_validate() {
-        assert!(ErgoAddress::validate(
-            "9iPgSVU3yrRnTxtJC6hYA7bS5mMqZtjeJHrT3fNdLV7JZVpY5By"
-        ));
-        assert!(ErgoAddress::validate(
-            "3Wx6cHkTaavysMMXSqqvoCL1n273NmcH3auiHymFwTSpKDFzQfW3"
-        ));
+        assert!(ErgoAddress::validate("9iPgSVU3yrRnTxtJC6hYA7bS5mMqZtjeJHrT3fNdLV7JZVpY5By"));
+        assert!(ErgoAddress::validate("3Wx6cHkTaavysMMXSqqvoCL1n273NmcH3auiHymFwTSpKDFzQfW3"));
         assert!(ErgoAddress::validate(FEE_MAINNET_ADDRESS));
         assert!(ErgoAddress::validate(FEE_TESTNET_ADDRESS));
-        assert!(ErgoAddress::validate(
-            "8sZ2fVu5VUQKEmWt4xRRDBYzuw5aevhhziPBDGB"
-        ));
-        assert!(ErgoAddress::validate(
-            "7g5LhysK7mxX8xmZdPLtFE42wwxGFjpp8VofStb"
-        ));
-        assert!(ErgoAddress::validate(
-            "8UApt8czfFVuTgQmMwtsRBZ4nfWquNiSwCWUjMg"
-        ));
+        assert!(ErgoAddress::validate("8sZ2fVu5VUQKEmWt4xRRDBYzuw5aevhhziPBDGB"));
+        assert!(ErgoAddress::validate("7g5LhysK7mxX8xmZdPLtFE42wwxGFjpp8VofStb"));
+        assert!(ErgoAddress::validate("8UApt8czfFVuTgQmMwtsRBZ4nfWquNiSwCWUjMg"));
 
-        assert!(!ErgoAddress::validate(
-            "9i3g6d958MpZAqwn9hrTHcqbBiY5VPYBBY6vRDszZn4koqnahin"
-        ));
+        assert!(!ErgoAddress::validate("9i3g6d958MpZAqwn9hrTHcqbBiY5VPYBBY6vRDszZn4koqnahin"));
         assert!(!ErgoAddress::validate("9eBy"));
     }
 
     #[test]
     fn test_get_network_type() {
-        assert_eq!(
-            ErgoAddress::get_network_type(FEE_MAINNET_ADDRESS).unwrap(),
-            Network::Mainnet
-        );
-        assert_eq!(
-            ErgoAddress::get_network_type(FEE_TESTNET_ADDRESS).unwrap(),
-            Network::Testnet
-        );
+        assert_eq!(ErgoAddress::get_network_type(FEE_MAINNET_ADDRESS).unwrap(), Network::Mainnet);
+        assert_eq!(ErgoAddress::get_network_type(FEE_TESTNET_ADDRESS).unwrap(), Network::Testnet);
         assert_eq!(
             ErgoAddress::get_network_type("9iPgSVU3yrRnTxtJC6hYA7bS5mMqZtjeJHrT3fNdLV7JZVpY5By")
                 .unwrap(),
@@ -563,10 +528,7 @@ mod tests {
                 .unwrap(),
             AddressType::P2PK
         );
-        assert_eq!(
-            ErgoAddress::get_address_type(FEE_MAINNET_ADDRESS).unwrap(),
-            AddressType::P2S
-        );
+        assert_eq!(ErgoAddress::get_address_type(FEE_MAINNET_ADDRESS).unwrap(), AddressType::P2S);
         assert_eq!(
             ErgoAddress::get_address_type("8sZ2fVu5VUQKEmWt4xRRDBYzuw5aevhhziPBDGB").unwrap(),
             AddressType::P2SH
@@ -582,24 +544,9 @@ mod tests {
                 Network::Mainnet,
                 true,
             ),
-            (
-                "9gsLq5a12nJe33nKtjMe7NPY7o8CQAtjS9amDgALbebv1wmRXrv",
-                "",
-                Network::Mainnet,
-                true,
-            ),
-            (
-                "9gU3czAt9q4fQPRWBriBbpfLbRP7JrXRmB7kowtwdyw66PMRmaY",
-                "",
-                Network::Mainnet,
-                true,
-            ),
-            (
-                "3WxxVQqxoVSWEKG5B73eNttBX51ZZ6WXLW7fiVDgCFhzRK8R4gmk",
-                "",
-                Network::Testnet,
-                true,
-            ),
+            ("9gsLq5a12nJe33nKtjMe7NPY7o8CQAtjS9amDgALbebv1wmRXrv", "", Network::Mainnet, true),
+            ("9gU3czAt9q4fQPRWBriBbpfLbRP7JrXRmB7kowtwdyw66PMRmaY", "", Network::Mainnet, true),
+            ("3WxxVQqxoVSWEKG5B73eNttBX51ZZ6WXLW7fiVDgCFhzRK8R4gmk", "", Network::Testnet, true),
             (
                 "2Z4YBkDsDvQj8BX7xiySFewjitqp2ge9c99jfes2whbtKitZTxdBYqbrVZUvZvKv6aqn9by4kp3LE1c26LCyosFnVnm6b6U1JYvWpYmL2ZnixJbXLjWAWuBThV1D6dLpqZJYQHYDznJCk49g5TUiS4q8khpag2aNmHwREV7JSsypHdHLgJT7MGaw51aJfNubyzSKxZ4AJXFS27EfXwyCLzW1K6GVqwkJtCoPvrcLqmqwacAWJPkmh78nke9H4oT88XmSbRt2n9aWZjosiZCafZ4osUDxmZcc5QVEeTWn8drSraY3eFKe8Mu9MSCcVU",
                 "101004020e36100204a00b08cd0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798ea02d192a39a8cc7a7017300730110010204020404040004c0fd4f05808c82f5f6030580b8c9e5ae040580f882ad16040204c0944004c0f407040004000580f882ad16d19683030191a38cc7a7019683020193c2b2a57300007473017302830108cdeeac93a38cc7b2a573030001978302019683040193b1a5730493c2a7c2b2a573050093958fa3730673079973089c73097e9a730a9d99a3730b730c0599c1a7c1b2a5730d00938cc7b2a5730e0001a390c1a7730f",
@@ -618,18 +565,8 @@ mod tests {
                 Network::Mainnet,
                 true,
             ),
-            (
-                "9fRusAarL1KkrWQVsxSRVYnvWxaAT2A96cKtNn9tvPh5XUyCiss",
-                "",
-                Network::Mainnet,
-                false,
-            ),
-            (
-                "9fRusAarL1KkrWQVsxSRVYnvWxaAT2A96c",
-                "",
-                Network::Mainnet,
-                false,
-            ),
+            ("9fRusAarL1KkrWQVsxSRVYnvWxaAT2A96cKtNn9tvPh5XUyCiss", "", Network::Mainnet, false),
+            ("9fRusAarL1KkrWQVsxSRVYnvWxaAT2A96c", "", Network::Mainnet, false),
             (P2S_LONG_ADDRESS, P2S_LONG_TREE, Network::Mainnet, true),
             (FEE_MAINNET_ADDRESS, FEE_CONTRACT, Network::Mainnet, true),
             (FEE_TESTNET_ADDRESS, FEE_CONTRACT, Network::Testnet, true),
@@ -645,12 +582,7 @@ mod tests {
 
             if is_valid {
                 let decoded = ErgoAddress::decode(address).unwrap();
-                assert_eq!(
-                    decoded.network(),
-                    expected_network,
-                    "Network mismatch for {}",
-                    address
-                );
+                assert_eq!(decoded.network(), expected_network, "Network mismatch for {}", address);
 
                 if !ergo_tree.is_empty() {
                     assert_eq!(
@@ -662,12 +594,7 @@ mod tests {
 
                     let from_tree =
                         ErgoAddress::from_ergo_tree_hex(ergo_tree, expected_network).unwrap();
-                    assert_eq!(
-                        from_tree.encode(),
-                        address,
-                        "Roundtrip failed for {}",
-                        address
-                    );
+                    assert_eq!(from_tree.encode(), address, "Roundtrip failed for {}", address);
                 }
             }
         }
@@ -721,12 +648,7 @@ mod tests {
         for (public_key, base58) in test_vectors {
             let address = ErgoAddress::decode(base58).unwrap();
             let pk = address.get_public_key().unwrap();
-            assert_eq!(
-                hex::encode(pk),
-                public_key,
-                "Public key mismatch for {}",
-                base58
-            );
+            assert_eq!(hex::encode(pk), public_key, "Public key mismatch for {}", base58);
 
             let ergo_tree = format!("0008cd{}", public_key);
             let from_tree = ErgoAddress::from_ergo_tree_hex(&ergo_tree, Network::Mainnet).unwrap();
@@ -757,20 +679,11 @@ mod tests {
     #[test]
     fn test_tree_to_base58_helpers() {
         let fee_tree = hex::decode(FEE_CONTRACT).unwrap();
-        assert_eq!(
-            tree_to_base58(&fee_tree, Network::Mainnet).unwrap(),
-            FEE_MAINNET_ADDRESS
-        );
-        assert_eq!(
-            tree_to_base58(&fee_tree, Network::Testnet).unwrap(),
-            FEE_TESTNET_ADDRESS
-        );
+        assert_eq!(tree_to_base58(&fee_tree, Network::Mainnet).unwrap(), FEE_MAINNET_ADDRESS);
+        assert_eq!(tree_to_base58(&fee_tree, Network::Testnet).unwrap(), FEE_TESTNET_ADDRESS);
 
         let long_tree = hex::decode(P2S_LONG_TREE).unwrap();
-        assert_eq!(
-            tree_to_base58(&long_tree, Network::Mainnet).unwrap(),
-            P2S_LONG_ADDRESS
-        );
+        assert_eq!(tree_to_base58(&long_tree, Network::Mainnet).unwrap(), P2S_LONG_ADDRESS);
     }
 
     #[test]
