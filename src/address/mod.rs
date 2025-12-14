@@ -1,4 +1,4 @@
-mod base58;
+pub mod base58;
 
 use base58::Base58Error;
 use blake2::{Blake2b, Digest};
