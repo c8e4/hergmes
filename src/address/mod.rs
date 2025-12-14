@@ -1,6 +1,3 @@
-pub mod base58;
-
-use base58::Base58Error;
 use blake2::{Blake2b, Digest};
 use hex::ToHex;
 use thiserror::Error;
@@ -57,8 +54,8 @@ impl AddressType {
 
 #[derive(Debug, Error)]
 pub enum AddressError {
-    #[error("Invalid base58 encoding: invalid character '{0}'")]
-    Base58DecodeError(char),
+    #[error("Invalid base58 encoding")]
+    Base58DecodeError,
 
     #[error("Address too short (minimum 5 bytes)")]
     AddressTooShort,
@@ -74,14 +71,6 @@ pub enum AddressError {
 
     #[error("Invalid hex encoding: {0}")]
     HexDecodeError(#[from] hex::FromHexError),
-}
-
-impl From<Base58Error> for AddressError {
-    fn from(e: Base58Error) -> Self {
-        match e {
-            Base58Error::InvalidCharacter(c) => AddressError::Base58DecodeError(c),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -107,7 +96,9 @@ impl ErgoAddress {
     }
 
     pub fn decode(encoded: &str) -> Result<Self, AddressError> {
-        let bytes = base58::decode(encoded)?;
+        let bytes = bs58::decode(encoded)
+            .into_vec()
+            .map_err(|_| AddressError::Base58DecodeError)?;
         let unpacked = Self::unpack_address(&bytes)?;
 
         if !Self::validate_checksum(&unpacked) {
@@ -118,7 +109,9 @@ impl ErgoAddress {
     }
 
     pub fn decode_unsafe(encoded: &str) -> Result<Self, AddressError> {
-        let bytes = base58::decode(encoded)?;
+        let bytes = bs58::decode(encoded)
+            .into_vec()
+            .map_err(|_| AddressError::Base58DecodeError)?;
         let unpacked = Self::unpack_address(&bytes)?;
         Self::from_unpacked(unpacked)
     }
@@ -128,7 +121,9 @@ impl ErgoAddress {
     }
 
     pub fn get_network_type(encoded: &str) -> Result<Network, AddressError> {
-        let bytes = base58::decode(encoded)?;
+        let bytes = bs58::decode(encoded)
+            .into_vec()
+            .map_err(|_| AddressError::Base58DecodeError)?;
         if bytes.is_empty() {
             return Err(AddressError::AddressTooShort);
         }
@@ -136,7 +131,9 @@ impl ErgoAddress {
     }
 
     pub fn get_address_type(encoded: &str) -> Result<AddressType, AddressError> {
-        let bytes = base58::decode(encoded)?;
+        let bytes = bs58::decode(encoded)
+            .into_vec()
+            .map_err(|_| AddressError::Base58DecodeError)?;
         if bytes.is_empty() {
             return Err(AddressError::AddressTooShort);
         }
@@ -280,7 +277,7 @@ fn encode_address(network: Network, address_type: AddressType, body: &[u8]) -> S
 
     content.extend_from_slice(checksum);
 
-    base58::encode(&content)
+    bs58::encode(&content).into_string()
 }
 
 fn blake2b256(data: &[u8]) -> [u8; BLAKE_256_HASH_LENGTH] {
@@ -303,13 +300,13 @@ pub fn ergo_tree_to_address_unchecked(ergo_tree: &[u8], network: Network) -> Str
 
     content.extend_from_slice(&hash[..CHECKSUM_LENGTH]);
 
-    base58::encode(&content)
+    bs58::encode(&content).into_string()
 }
 
 #[inline]
 pub fn address_to_ergo_tree_unchecked(encoded: &str) -> Vec<u8> {
     let mut buf = [0u8; MAX_ADDRESS_BYTES];
-    let len = base58::decode_into(encoded, &mut buf);
+    let len = bs58::decode(encoded).onto(&mut buf[..]).unwrap_or(0);
 
     let head = buf[0];
     let body = &buf[1..len - CHECKSUM_LENGTH];
@@ -338,7 +335,7 @@ const MAX_ADDRESS_BYTES: usize = 4096 + 1 + 4;
 #[inline]
 pub fn address_to_ergo_tree_unchecked_buf(encoded: &str, out: &mut [u8]) -> usize {
     let mut buf = [0u8; MAX_ADDRESS_BYTES];
-    let len = base58::decode_into(encoded, &mut buf);
+    let len = bs58::decode(encoded).onto(&mut buf[..]).unwrap_or(0);
 
     let head = buf[0];
     let body = &buf[1..len - CHECKSUM_LENGTH];
