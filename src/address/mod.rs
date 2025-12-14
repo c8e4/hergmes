@@ -110,7 +110,16 @@ impl ErgoAddress {
     }
 
     /// Decode an address without validating the checksum.
-    /// Use this only when you trust the input source and need maximum performance.
+    ///
+    /// # When to use
+    /// - Batch processing P2PK/P2SH addresses from trusted sources (e.g., blockchain data)
+    /// - Hot paths where addresses were already validated elsewhere
+    /// - ~16-17% faster for short addresses (P2PK, P2SH)
+    ///
+    /// # When it's useless
+    /// - Long P2S addresses: base58 decoding dominates, checksum overhead is <1%
+    /// - User input: always use `decode()` to catch typos/corruption
+    /// - One-off operations: the ~200ns saved won't matter
     pub fn decode_unsafe(encoded: &str) -> Result<Self, AddressError> {
         let bytes = bs58::decode(encoded)
             .into_vec()
